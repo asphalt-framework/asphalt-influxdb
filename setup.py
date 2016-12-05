@@ -38,6 +38,7 @@ setup(
         'testing': [
             'pytest',
             'pytest-cov',
+            'pytest-catchlog',
             'pytest-asyncio >= 0.5.0'
         ]
     },
