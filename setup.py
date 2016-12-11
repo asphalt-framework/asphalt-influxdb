@@ -32,7 +32,8 @@ setup(
     ],
     install_requires=[
         'asphalt ~= 2.1',
-        'aiohttp ~= 1.1'
+        'aiohttp ~= 1.1',
+        'python-dateutil ~= 2.6'
     ],
     extras_require={
         'testing': [

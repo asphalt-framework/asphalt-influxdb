@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, date, timezone
+from decimal import Decimal
 from typing import Dict, Any, Union, Optional
 
 from typeguard import check_argument_types
 
+value_types = Union[str, int, float, Decimal, bool, date]
 precision_multipliers = {
     'h': 1 / 60 / 60,
     'm': 1 / 60,
@@ -21,6 +23,22 @@ def quote_string(text):
 def convert_to_timestamp(dt: datetime, precision: Optional[str]) -> int:
     ts = dt.timestamp()
     return int(ts * precision_multipliers[precision])
+
+
+def transform_value(value: value_types) -> str:
+    assert check_argument_types()
+    if isinstance(value, str):
+        return quote_string(value)
+    elif isinstance(value, bool):
+        return str(value).upper()
+    elif isinstance(value, int):
+        return '%di' % value
+    elif isinstance(value, datetime):
+        return value.astimezone(timezone.utc).replace(tzinfo=None).isoformat(' ')
+    elif isinstance(value, date):
+        return value.isoformat()
+    else:
+        return str(value)
 
 
 def merge_write_params(old_params: Dict[str, Any], db: str = None, username: str = None,

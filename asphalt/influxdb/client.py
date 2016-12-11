@@ -158,16 +158,29 @@ class InfluxDBClient:
         else:
             raise InfluxDBError('no servers could be reached')
 
-    def query(self, *args, **kwargs) -> SelectQuery:
+    def query(self, select: Union[str, Iterable[str]], from_: Union[str, Iterable[str]], **kwargs) -> SelectQuery:
         """
         Create a query builder.
 
-        :param args: positional arguments to pass to :class:`~..query.SelectQuery`
+        To execute the query, call its :meth:`~asphalt.influxdb.query.SelectQuery.execute` method.
+
+        :param select: expressions to select
+        :param from_: measurements to select from
         :param kwargs: keyword arguments to pass to :class:`~asphalt.influxdb.query.SelectQuery`
         :return: a query builder object
 
         """
-        return SelectQuery(self, *args, **kwargs)
+        assert check_argument_types()
+
+        if not isinstance(select, str):
+            select = ','.join(select)
+
+        if isinstance(from_, str):
+            from_ = quote_string(from_)
+        else:
+            from_ = ','.join(quote_string(item) for item in from_)
+
+        return SelectQuery(self, select, from_, **kwargs)
 
     async def raw_query(self, query: str, *, http_verb: str = None, **query_params) -> \
             Union[Series, List[Series], List[List[Series]]]:

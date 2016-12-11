@@ -100,6 +100,14 @@ class TestClient:
         assert re.match(r'^\d+\.\d+\.\d+$', version)
         assert bad_cluster_client.base_urls[0] == 'http://localhost:8086'
 
+    @pytest.mark.parametrize('select, from_, expected', [
+        (['field1', 'field2'], ['m1', 'm2'], 'SELECT field1,field2 FROM "m1","m2"'),
+        ('field1', 'm1', 'SELECT field1 FROM "m1"')
+    ])
+    def test_query(self, client, select, from_, expected):
+        query = client.query(select, from_)
+        assert str(query) == expected
+
     @pytest.mark.asyncio
     async def test_raw_query(self, client, event_loop, cleanup_measurements):
         timestamp1 = datetime(2016, 12, 3, 19, 26, 51, 53212, tzinfo=timezone.utc)

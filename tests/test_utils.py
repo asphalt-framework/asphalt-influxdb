@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
+from decimal import Decimal
 
 import pytest
 
 from asphalt.influxdb.utils import (
-    convert_to_timestamp, quote_string, merge_write_params, merge_query_params)
+    convert_to_timestamp, quote_string, merge_write_params, merge_query_params, transform_value)
 
 
 @pytest.mark.parametrize('value, expected', [
@@ -23,8 +24,22 @@ def test_quote_string(value, expected):
     ('n', 1480785505123456000)
 ], ids=['h', 'm', 's', 'ms', 'u', 'n'])
 def test_convert_to_timestamp(precision, expected):
-    dt = datetime(2016, 12, 3, 17, 18, 25, 123456, tzinfo=timezone.utc)
+    dt = datetime(2016, 12, 3, 17, 18, 25, 123456, timezone.utc)
     assert convert_to_timestamp(dt, precision) == expected
+
+
+@pytest.mark.parametrize('value, expected', [
+    ('foo', '"foo"'),
+    (5, '5i'),
+    (True, 'TRUE'),
+    (datetime(2016, 12, 11, 13, 12, 5, 521286, timezone.utc),
+     '2016-12-11 13:12:05.521286'),
+    (date(2016, 12, 11), '2016-12-11'),
+    (4301.2142, '4301.2142'),
+    (Decimal('4301.2142'), '4301.2142')
+], ids=['str', 'int', 'bool', 'datetime', 'date', 'float', 'Decimal'])
+def test_transform_value(value, expected):
+    assert transform_value(value) == expected
 
 
 def test_merge_write_params():

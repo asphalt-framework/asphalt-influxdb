@@ -1,4 +1,5 @@
 from asyncio import Future
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -10,6 +11,11 @@ class TestKeyedTuple:
     @pytest.fixture
     def test_tuple(self):
         return KeyedTuple({'col1': 0, 'col2': 1, 'col 3': 2}, [2.65, 2.19, 6.03])
+
+    def test_timestamp(self):
+        keyedtuple = KeyedTuple({'time': 0, 'col1': 1}, ['2016-12-11T13:40:45.150329483Z', 6])
+        assert keyedtuple.time == datetime(2016, 12, 11, 13, 40, 45, 150329, timezone.utc)
+        assert keyedtuple.col1 == 6
 
     def test_getattr(self, test_tuple):
         assert test_tuple.col1 == 2.65
@@ -79,25 +85,44 @@ class TestQuery:
         return client
 
     @pytest.fixture
-    def test_query(self, fake_client):
-        return SelectQuery(fake_client, ['key1', 'key2'], ['m1', 'm2'])
+    def query(self, fake_client):
+        return SelectQuery(fake_client, 'key1,key2', '"m1","m2"')
 
-    def test_str(self, test_query):
-        test_query = test_query.into('m3').where('m1 > 6.54').order_by('m2 DESC', 'm1 ASC').\
-            group_by('m1', 'm2')
-        assert str(test_query) == ('SELECT key1,key2 INTO "m3" FROM "m1","m2" WHERE m1 > 6.54 '
-                                   'GROUP BY m1,m2 ORDER BY m2 DESC,m1 ASC')
+    def test_select(self, query):
+        query = query.select('key3')
+        assert str(query) == 'SELECT key1,key2,key3 FROM "m1","m2"'
+        assert str(query.select().select('key5')) == 'SELECT key5 FROM "m1","m2"'
+
+    def test_into(self, query):
+        query = query.into('m3')
+        assert str(query) == 'SELECT key1,key2 INTO "m3" FROM "m1","m2"'
+
+    def test_where(self, query):
+        query = query.where('key1 > 5', key2='blah').where('key3=5i').where(key4=4.25)
+        assert str(query) == ('SELECT key1,key2 FROM "m1","m2" WHERE key1 > 5 AND "key2" = "blah" '
+                              'AND key3=5i AND "key4" = 4.25')
+        assert str(query.where()) == 'SELECT key1,key2 FROM "m1","m2"'
+
+    def test_group_by(self, query):
+        query = query.group_by('key1', 'key2 + 2').group_by('key3')
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" GROUP BY key1,key2 + 2,key3'
+        assert str(query.group_by()) == 'SELECT key1,key2 FROM "m1","m2"'
+
+    def test_order_by(self, query):
+        query = query.order_by('key1', 'key2 + 2').order_by('key3')
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" ORDER BY key1,key2 + 2,key3'
+        assert str(query.order_by()) == 'SELECT key1,key2 FROM "m1","m2"'
 
     @pytest.mark.asyncio
-    async def test_execute(self, test_query, fake_client):
-        test_query = test_query.params(rp='dontkeep', epoch='m')
-        assert await test_query.execute() is None
+    async def test_execute(self, query, fake_client):
+        query = query.params(rp='dontkeep', epoch='m')
+        assert await query.execute() is None
         fake_client.raw_query.assert_called_once_with('SELECT key1,key2 FROM "m1","m2"',
                                                       http_verb='GET', rp='dontkeep', epoch='m')
 
     @pytest.mark.asyncio
-    async def test_execute_into(self, test_query, fake_client):
-        test_query = test_query.into('m3').params(rp='dontkeep', epoch='m')
-        assert await test_query.execute() is None
+    async def test_execute_into(self, query, fake_client):
+        query = query.into('m3').params(rp='dontkeep', epoch='m')
+        assert await query.execute() is None
         fake_client.raw_query.assert_called_once_with('SELECT key1,key2 INTO "m3" FROM "m1","m2"',
                                                       http_verb='POST', rp='dontkeep', epoch='m')
