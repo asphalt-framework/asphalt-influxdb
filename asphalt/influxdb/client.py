@@ -154,11 +154,25 @@ class InfluxDBClient:
                 if len(self.base_urls) > 1:
                     self.base_urls.insert(0, self.base_urls.pop(i))
 
-                return response
+                if response.status >= 400:
+                    if response.content_type == 'application/json':
+                        body = await response.json()
+                        raise InfluxDBError(body['error'])
+                    else:
+                        text = await response.text()
+                        raise InfluxDBError('server error: %s' % text)
+
+                if response.status in (200, 204):
+                    return response
+                else:
+                    await response.release()
+                    raise InfluxDBError('server responded with an unexpected HTTP status: %d' %
+                                        response.status)
         else:
             raise InfluxDBError('no servers could be reached')
 
-    def query(self, select: Union[str, Iterable[str]], from_: Union[str, Iterable[str]], **kwargs) -> SelectQuery:
+    def query(self, select: Union[str, Iterable[str]], from_: Union[str, Iterable[str]],
+              **kwargs) -> SelectQuery:
         """
         Create a query builder.
 
@@ -183,7 +197,7 @@ class InfluxDBClient:
         return SelectQuery(self, select, from_, **kwargs)
 
     async def raw_query(self, query: str, *, http_verb: str = None, **query_params) -> \
-            Union[Series, List[Series], List[List[Series]]]:
+            Union[None, Series, List[Series], List[List[Series]]]:
         """
         Send a raw query to the server.
 
@@ -198,20 +212,12 @@ class InfluxDBClient:
             * a single series
             * a list of series (if selecting from more than one measurement)
             * a list of lists of series (if the query string contained multiple queries)
-
-            Each series can also be replaced by an :class:`.InfluxDBError` if the server returned
-            an error for that particular series.
         :raises InfluxDBError: if the server returns an error or an unexpected HTTP status code
 
         """
-        def get_series(result: Dict[str, Any]) -> Union[Series, List[Series], InfluxDBError, None]:
-            if 'error' in result:
-                return InfluxDBError(result['error'])
-            elif 'series' in result:
-                series_list = [Series(**item) for item in result['series']]
-                return series_list[0] if len(series_list) == 1 else series_list
-            else:
-                return None
+        def get_series(result: Dict[str, Any]) -> Union[Series, List[Series], None]:
+            series_list = [Series(**item) for item in result['series']]
+            return series_list[0] if len(series_list) == 1 else series_list
 
         assert check_argument_types()
 
@@ -225,23 +231,14 @@ class InfluxDBClient:
         query_params = merge_query_params(self.default_query_params, **query_params)
         query_params['q'] = query
         response = await self._request(http_verb, '/query', params=query_params)
-        with closing(response):
-            if response.status == 200:
-                results = (await response.json())['results']
-                series_list = [get_series(result) for result in results]
-                if len(series_list) == 1:
-                    if isinstance(series_list[0], InfluxDBError):
-                        raise series_list[0]
-                    else:
-                        return series_list[0]
-                else:
-                    return series_list
-            elif (response.status in (400, 404, 500) and
-                  response.content_type == 'application/json'):
-                body = await response.json()
-                raise InfluxDBError(body['error'])
-            else:
-                raise InfluxDBError('unexpected HTTP status code: %d' % response.status)
+        results = (await response.json())['results']
+        series_list = [get_series(result) for result in results if 'series' in result]
+        if not series_list:
+            return None
+        elif len(series_list) == 1:
+            return series_list[0]
+        else:
+            return series_list
 
     async def write(self, measurement: str, tags: Dict[str, Any],
                     fields: Dict[str, Union[float, Decimal, bool, str]],
@@ -251,6 +248,9 @@ class InfluxDBClient:
 
         This is a shortcut for instantiating a :class:`.DataPoint` and passing it in a tuple to
         :meth:`write_many`.
+
+        .. note:: If the timestamp is given as an integer, it must match with the ``precision``
+          option the client was initialized with.
 
         :param measurement: name of the measurement
         :param tags: a dictionary of tag names to values
@@ -277,15 +277,7 @@ class InfluxDBClient:
         lines = '\n'.join(datapoint.as_line(precision) for datapoint in datapoints)
         response = await self._request('POST', '/write', data=lines.encode('utf-8'),
                                        params=write_params)
-        with closing(response):
-            if response.status == 204:
-                return
-            elif (response.status in (400, 404, 500) and
-                  response.content_type == 'application/json'):
-                body = await response.json()
-                raise InfluxDBError(body['error'])
-            else:
-                raise InfluxDBError('unexpected HTTP status code: %d' % response.status)
+        await response.release()
 
     async def ping(self) -> str:
         """
@@ -297,7 +289,4 @@ class InfluxDBClient:
         """
         response = await self._request('GET', '/ping')
         with closing(response) as response:
-            if response.status == 204:
-                return response.headers['X-Influxdb-Version']
-            else:
-                raise InfluxDBError('unexpected HTTP status code: %d' % response.status)
+            return response.headers['X-Influxdb-Version']

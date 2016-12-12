@@ -24,9 +24,6 @@ async def run_query(query, method='POST', *, loop):
 
 
 class TestDataPoint:
-    def test_no_fields_error(self):
-        pytest.raises(ValueError, DataPoint, 'm1', {}, {}).match('at least one field is required')
-
     @pytest.mark.parametrize('timestamp, expected', [
         (datetime(2016, 12, 3, 19, 26, 51, 53212, tzinfo=timezone.utc),
          'm1,tag1=abc,tag2=6 field1=5.5,field2=7i,field3="x" 1480793211053212'),
@@ -39,6 +36,13 @@ class TestDataPoint:
         fields = OrderedDict([('field1', 5.5), ('field2', 7), ('field3', 'x')])
         datapoint = DataPoint('m1', tags, fields, timestamp)
         assert datapoint.as_line('u') == expected
+
+    def test_minimal(self):
+        datapoint = DataPoint('m1', {}, {'field1': 5})
+        assert datapoint.as_line('ms') == 'm1 field1=5i'
+
+    def test_no_fields_error(self):
+        pytest.raises(ValueError, DataPoint, 'm1', {}, {}).match('at least one field is required')
 
 
 class TestClient:
@@ -53,7 +57,7 @@ class TestClient:
     def cleanup_measurements(self, event_loop):
         """Delete all data from the "m1" measurements."""
         yield
-        event_loop.run_until_complete(run_query('DELETE FROM "m1"', loop=event_loop))
+        event_loop.run_until_complete(run_query('DROP MEASUREMENT "m1"', loop=event_loop))
 
     @pytest.fixture
     def client(self, event_loop):
@@ -109,7 +113,7 @@ class TestClient:
         assert str(query) == expected
 
     @pytest.mark.asyncio
-    async def test_raw_query(self, client, event_loop, cleanup_measurements):
+    async def test_raw_query_get(self, client, event_loop, cleanup_measurements):
         timestamp1 = datetime(2016, 12, 3, 19, 26, 51, 53212, tzinfo=timezone.utc)
         timestamp2 = datetime(2016, 12, 3, 19, 26, 52, 640291, tzinfo=timezone.utc)
         await client.write('m1', dict(tag1=5, tag6='a'), dict(f1=4.32, f2=6.9312), timestamp1)
@@ -128,6 +132,15 @@ class TestClient:
         assert row2.tag6 == 'xy'
         assert row2.f1 == 5.22
         assert row2.f2 == 8.79
+
+    @pytest.mark.asyncio
+    async def test_raw_query_post(self, client, event_loop, cleanup_measurements):
+        result = await client.raw_query('CREATE RETENTION POLICY testpolicy ON asphalt_test '
+                                        'DURATION INF REPLICATION 1')
+        assert result is None
+
+        result = await client.raw_query('DROP RETENTION POLICY testpolicy ON asphalt_test')
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_write(self, client, event_loop, cleanup_measurements):

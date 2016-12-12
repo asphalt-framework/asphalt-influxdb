@@ -4,7 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from asphalt.influxdb import KeyedTuple, SelectQuery, Series, InfluxDBClient
+from asphalt.influxdb.query import KeyedTuple, SelectQuery, Series
+from asphalt.influxdb.client import InfluxDBClient
 
 
 class TestKeyedTuple:
@@ -104,14 +105,25 @@ class TestQuery:
         assert str(query.where()) == 'SELECT key1,key2 FROM "m1","m2"'
 
     def test_group_by(self, query):
-        query = query.group_by('key1', 'key2 + 2').group_by('key3')
-        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" GROUP BY key1,key2 + 2,key3'
+        query = query.group_by('tag1', 'tag2').group_by('tag3')
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" GROUP BY "tag1","tag2","tag3"'
+        assert str(query.group_by('*')) == 'SELECT key1,key2 FROM "m1","m2" GROUP BY *'
         assert str(query.group_by()) == 'SELECT key1,key2 FROM "m1","m2"'
 
-    def test_order_by(self, query):
-        query = query.order_by('key1', 'key2 + 2').order_by('key3')
-        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" ORDER BY key1,key2 + 2,key3'
-        assert str(query.order_by()) == 'SELECT key1,key2 FROM "m1","m2"'
+    def test_descending(self, query):
+        query = query.descending(True)
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" ORDER BY time DESC'
+        assert str(query.descending(False)) == 'SELECT key1,key2 FROM "m1","m2"'
+
+    def test_limit_offset(self, query):
+        query = query.limit(3).offset(2)
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" LIMIT 3 OFFSET 2'
+        assert str(query.limit().offset()) == 'SELECT key1,key2 FROM "m1","m2"'
+
+    def test_slimit_soffset(self, query):
+        query = query.slimit(3).soffset(2)
+        assert str(query) == 'SELECT key1,key2 FROM "m1","m2" SLIMIT 3 SOFFSET 2'
+        assert str(query.slimit().soffset()) == 'SELECT key1,key2 FROM "m1","m2"'
 
     @pytest.mark.asyncio
     async def test_execute(self, query, fake_client):

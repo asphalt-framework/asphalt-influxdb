@@ -93,18 +93,23 @@ class SelectQuery:
     """
 
     __slots__ = ('_client', '_select', '_from', '_query_params', '_into', '_where',
-                 '_order_by', '_group_by')
+                 '_group_by', '_descending', '_limit', '_offset', '_slimit', '_soffset')
 
     def __init__(self, client, select: str, from_: str, into: str = '', where: str = '',
-                 group_by: str = '', order_by: str = '',
+                 group_by: str = '', descending: bool = False, limit: int = None,
+                 offset: int = None, slimit: int = None, soffset: int = None,
                  query_params: Dict[str, Any] = None) -> None:
         self._client = client
         self._select = select
         self._from = from_
         self._into = into
         self._where = where
-        self._order_by = order_by
         self._group_by = group_by
+        self._descending = descending
+        self._limit = limit
+        self._offset = offset
+        self._slimit = slimit
+        self._soffset = soffset
         self._query_params = query_params or {}  # type: Dict[str, Any]
 
     def select(self, *expressions: str) -> 'SelectQuery':
@@ -123,7 +128,8 @@ class SelectQuery:
             expression = self._select + ',' + expression
 
         return SelectQuery(self._client, expression, self._from, self._into, self._where,
-                           self._group_by, self._order_by, self._query_params)
+                           self._group_by, self._descending, self._limit, self._offset,
+                           self._slimit, self._soffset, self._query_params)
 
     def into(self, into: str) -> 'SelectQuery':
         """
@@ -134,7 +140,8 @@ class SelectQuery:
 
         """
         return SelectQuery(self._client, self._select, self._from, quote_string(into),
-                           self._where, self._group_by, self._order_by, self._query_params)
+                           self._where, self._group_by, self._descending, self._limit,
+                           self._offset, self._slimit, self._soffset, self._query_params)
 
     def where(self, *expressions: str,
               **equals: Union[str, float, int, Decimal, bool]) -> 'SelectQuery':
@@ -157,43 +164,93 @@ class SelectQuery:
             expression = self._where + ' AND ' + expression
 
         return SelectQuery(self._client, self._select, self._from, self._into, expression,
-                           self._group_by, self._order_by, self._query_params)
+                           self._group_by, self._descending, self._limit, self._offset,
+                           self._slimit, self._soffset, self._query_params)
 
-    def group_by(self, *expressions: str) -> 'SelectQuery':
+    def group_by(self, *tags: str) -> 'SelectQuery':
         """
         Augment or reset the GROUP BY clause in the query.
+
+        If a ``*`` is the existing GROUP BY clause or among the given tags, it will be set as the
+        sole GROUP BY clause and all other tags will be ignored as they would be redundant.
 
         With no arguments, the GROUP BY clause is reset. Otherwise, the expressions will be added
         to the existing GROUP BY clause.
 
-        :param expressions: raw InfluxQL expressions
+        :param tags: tags on which to group
         :return: a new query
 
         """
-        expression = ','.join(expressions)
-        if expression and self._group_by:
-            expression = self._group_by + ',' + expression
+        if '*' in (self._group_by,) + tags:
+            expression = '*'
+        else:
+            expression = ','.join(quote_string(tag) for tag in tags)
+            if expression and self._group_by:
+                expression = self._group_by + ',' + expression
 
         return SelectQuery(self._client, self._select, self._from, self._into, self._where,
-                           expression, self._order_by, self._query_params)
+                           expression, self._descending, self._limit, self._offset, self._slimit,
+                           self._soffset, self._query_params)
 
-    def order_by(self, *expressions: str) -> 'SelectQuery':
+    def descending(self, value: bool) -> 'SelectQuery':
         """
-        Augment or reset the ORDER BY clause in the query.
+        Set the sort order of the query.
 
-        With no arguments, the ORDER BY clause is reset. Otherwise, the expressions will be added
-        to the existing ORDER BY clause.
-
-        :param expressions: raw InfluxQL expressions
+        :param value: ``True`` to sort in descending order, ``False`` for ascending
         :return: a new query
 
         """
-        expression = ','.join(expressions)
-        if expression and self._order_by:
-            expression = self._order_by + ',' + expression
-
         return SelectQuery(self._client, self._select, self._from, self._into, self._where,
-                           self._group_by, expression, self._query_params)
+                           self._group_by, value, self._limit, self._offset, self._slimit,
+                           self._soffset, self._query_params)
+
+    def limit(self, limit: int = None) -> 'SelectQuery':
+        """
+        Set the LIMIT clause in the query.
+
+        :param limit: the new LIMIT value
+        :return: a new query
+
+        """
+        return SelectQuery(self._client, self._select, self._from, self._into, self._where,
+                           self._group_by, self._descending, limit, self._offset, self._slimit,
+                           self._soffset, self._query_params)
+
+    def offset(self, offset: int = None) -> 'SelectQuery':
+        """
+        Set the OFFSET clause in the query.
+
+        :param offset: the new OFFSET value
+        :return: a new query
+
+        """
+        return SelectQuery(self._client, self._select, self._from, self._into, self._where,
+                           self._group_by, self._descending, self._limit, offset, self._slimit,
+                           self._soffset, self._query_params)
+
+    def slimit(self, slimit: int = None) -> 'SelectQuery':
+        """
+        Set the SLIMIT clause in the query.
+
+        :param slimit: the new SLIMIT value
+        :return: a new query
+
+        """
+        return SelectQuery(self._client, self._select, self._from, self._into, self._where,
+                           self._group_by, self._descending, self._limit, self._offset, slimit,
+                           self._soffset, self._query_params)
+
+    def soffset(self, soffset: int = None) -> 'SelectQuery':
+        """
+        Set the SOFFSET clause in the query.
+
+        :param soffset: the new SOFFSET value
+        :return: a new query
+
+        """
+        return SelectQuery(self._client, self._select, self._from, self._into, self._where,
+                           self._group_by, self._descending, self._limit, self._offset,
+                           self._slimit, soffset, self._query_params)
 
     def params(self, **query_params) -> 'SelectQuery':
         """
@@ -203,7 +260,8 @@ class SelectQuery:
 
         """
         return SelectQuery(self._client, self._select, self._from, self._into, self._where,
-                           self._group_by, self._order_by, query_params)
+                           self._group_by, self._descending, self._limit, self._offset,
+                           self._slimit, self._soffset, query_params)
 
     async def execute(self) -> Union[Series, List[Series]]:
         """
@@ -229,7 +287,19 @@ class SelectQuery:
         if self._group_by:
             text += ' GROUP BY ' + self._group_by
 
-        if self._order_by:
-            text += ' ORDER BY ' + self._order_by
+        if self._descending:
+            text += ' ORDER BY time DESC'
+
+        if self._limit is not None:
+            text += ' LIMIT %d' % self._limit
+
+        if self._offset is not None:
+            text += ' OFFSET %d' % self._offset
+
+        if self._slimit is not None:
+            text += ' SLIMIT %d' % self._slimit
+
+        if self._soffset is not None:
+            text += ' SOFFSET %d' % self._soffset
 
         return text
