@@ -29,7 +29,7 @@ def test_convert_to_timestamp(precision, expected):
 
 
 @pytest.mark.parametrize('value, expected', [
-    ('foo', '"foo"'),
+    ('foo', "'foo'"),
     (5, '5i'),
     (True, 'TRUE'),
     (datetime(2016, 12, 11, 13, 12, 5, 521286, timezone.utc),

@@ -28,7 +28,7 @@ def convert_to_timestamp(dt: datetime, precision: Optional[str]) -> int:
 def transform_value(value: value_types) -> str:
     assert check_argument_types()
     if isinstance(value, str):
-        return quote_string(value)
+        return "'%s'" % value.replace("'", "\'")
     elif isinstance(value, bool):
         return str(value).upper()
     elif isinstance(value, int):
