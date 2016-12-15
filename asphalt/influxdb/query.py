@@ -27,6 +27,10 @@ class KeyedTuple:
         if time_index is not None:
             row[time_index] = parse(row[time_index])
 
+    def _asdict(self) -> Dict[str, Any]:
+        """Return the tuple as a dictionary."""
+        return {col: self._row[index] for col, index in self.columns.items()}
+
     def __getattr__(self, key: str):
         try:
             return self._row[self.columns[key]]

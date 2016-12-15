@@ -13,6 +13,9 @@ class TestKeyedTuple:
     def test_tuple(self):
         return KeyedTuple({'col1': 0, 'col2': 1, 'col 3': 2}, [2.65, 2.19, 6.03])
 
+    def test_asdict(self, test_tuple):
+        assert test_tuple._asdict() == {'col1': 2.65, 'col2': 2.19, 'col 3': 6.03}
+
     def test_timestamp(self):
         keyedtuple = KeyedTuple({'time': 0, 'col1': 1}, ['2016-12-11T13:40:45.150329483Z', 6])
         assert keyedtuple.time == datetime(2016, 12, 11, 13, 40, 45, 150329, timezone.utc)
@@ -100,8 +103,8 @@ class TestQuery:
 
     def test_where(self, query):
         query = query.where('key1 > 5', key2='blah').where('key3=5i').where(key4=4.25)
-        assert str(query) == ('SELECT key1,key2 FROM "m1","m2" WHERE key1 > 5 AND "key2" = "blah" '
-                              'AND key3=5i AND "key4" = 4.25')
+        assert str(query) == ('SELECT key1,key2 FROM "m1","m2" WHERE key1 > 5 '
+                              'AND "key2" = \'blah\' AND key3=5i AND "key4" = 4.25')
         assert str(query.where()) == 'SELECT key1,key2 FROM "m1","m2"'
 
     def test_group_by(self, query):
