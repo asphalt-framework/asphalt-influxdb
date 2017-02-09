@@ -64,7 +64,8 @@ def merge_write_params(old_params: Dict[str, Any], db: str = None, username: str
 
 def merge_query_params(old_params: Dict[str, Any], db: str = None, username: str = None,
                        password: str = None, chunked: Union[bool, int] = None,
-                       retention_policy: str = None, epoch: str = None) -> Dict[str, Any]:
+                       retention_policy: str = None, epoch: str = None,
+                       chunk_size: int = None) -> Dict[str, Any]:
     assert check_argument_types()
     if epoch not in ('n', 'u', 'ms', 's', 'm', 'h', None):
         raise ValueError('epoch must be one of "ns", "u", "ms", "s", "m", "h" or None')
@@ -73,6 +74,7 @@ def merge_query_params(old_params: Dict[str, Any], db: str = None, username: str
         'db': db,
         'p': password,
         'chunked': chunked,
+        'chunk_size': chunk_size,
         'epoch': epoch,
         'rp': retention_policy,
         'u': username

@@ -79,6 +79,9 @@ class Series:
         self.columns = tuple(columns)
         self._values = values
 
+    def add_values(self, values: List) -> None:
+        self._values.extend(values)
+
     def __iter__(self):
         columns = {key: index for index, key in enumerate(self.columns)}
         for item in self._values:

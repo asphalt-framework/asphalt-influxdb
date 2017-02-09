@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**1.1.1** (2017-02-09)
+
+- Fixed handling of long responses (on InfluxDB 1.2+)
+
 **1.1.0** (2016-12-15)
 
 - Added the ``KeyedTuple._asdict()`` method

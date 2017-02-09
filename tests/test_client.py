@@ -9,6 +9,7 @@ from aiohttp import ClientSession
 from asphalt.core import Context
 
 from asphalt.influxdb.client import InfluxDBClient, DataPoint
+from asphalt.influxdb.query import Series
 
 
 async def run_query(query, method='POST', *, loop):
@@ -152,7 +153,8 @@ class TestClient:
                 'columns': ['time', 'f1', 'f2', 'tag1', 'tag6'],
                 'name': 'm1',
                 'values': [['2016-12-03T19:26:51.053212Z', 4.32, 6.9312, '5', 'a']]
-            }]
+            }],
+            'statement_id': 0
         }]
 
     @pytest.mark.asyncio
@@ -171,5 +173,21 @@ class TestClient:
                 'name': 'm1',
                 'values': [['2016-12-03T19:26:51.053212Z', 4.32, 6.9312, '5', 'a'],
                            ['2016-12-03T20:19:29.123456Z', 654.0, 3042.1, 'abc', 'xx']]
-            }]
+            }],
+            'statement_id': 0
         }]
+
+    @pytest.mark.asyncio
+    async def test_partial_series(self, client, event_loop, cleanup_measurements):
+        """Test that partial series are combined into one."""
+        datapoints = [
+            DataPoint('m1', dict(tag1=5, tag6='a'), dict(f1=4.32, f2=6.9312),
+                      datetime(2016, 12, 3, 19, 26, 51, 53212, tzinfo=timezone.utc)),
+            DataPoint('m1', dict(tag1='abc', tag6='xx'), dict(f1=654.0, f2=3042.1),
+                      1480796369123456)
+        ]
+        await client.write_many(datapoints)
+
+        series = await client.raw_query('SELECT * FROM m1', chunk_size=1)
+        assert isinstance(series, Series)
+        assert len(series) == 2

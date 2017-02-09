@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import closing
 from datetime import datetime
@@ -229,10 +230,27 @@ class InfluxDBClient:
                 http_verb = 'POST'
 
         query_params = merge_query_params(self.default_query_params, **query_params)
+        query_params.setdefault('chunked', 'true')
         query_params['q'] = query
         response = await self._request(http_verb, '/query', params=query_params)
-        results = (await response.json())['results']
-        series_list = [get_series(result) for result in results if 'series' in result]
+        data = await response.read()
+        series_list = []
+        last_is_partial = False
+        for line in data.split(b'\n'):
+            if line:
+                results = json.loads(line.decode('utf-8'))['results']
+                for result in results:
+                    if 'series' in result:
+                        for series_dict in result['series']:
+                            partial = series_dict.pop('partial', False)
+                            if last_is_partial:
+                                series_list[-1].add_values(series_dict['values'])
+                            else:
+                                series = Series(**series_dict)
+                                series_list.append(series)
+
+                            last_is_partial = partial
+
         if not series_list:
             return None
         elif len(series_list) == 1:
