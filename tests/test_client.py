@@ -61,34 +61,46 @@ class TestClient:
         event_loop.run_until_complete(run_query('DROP MEASUREMENT "m1"', loop=event_loop))
 
     @pytest.fixture
-    def client(self, event_loop):
-        client_ = InfluxDBClient(db='asphalt_test', precision='u')
-        yield client_
-        event_loop.run_until_complete(client_.close())
+    def context(self, event_loop):
+        ctx = Context()
+        yield ctx
+        if not ctx.closed:
+            event_loop.run_until_complete(ctx.close())
 
     @pytest.fixture
-    def bad_cluster_client(self, event_loop):
+    def client(self, event_loop, context):
+        client_ = InfluxDBClient(db='asphalt_test', precision='u')
+        event_loop.run_until_complete(client_.start(context))
+        return client_
+
+    @pytest.fixture
+    def session(self, event_loop):
+        session_ = ClientSession(loop=event_loop)
+        yield session_
+        if not session_.closed:
+            session_.close()
+
+    @pytest.fixture
+    def bad_cluster_client(self, event_loop, context):
         base_urls = ['http://localhost:9999', 'http://localhost:8086']
         client_ = InfluxDBClient(base_urls, db='asphalt_test', precision='u')
-        yield client_
-        event_loop.run_until_complete(client_.close())
+        event_loop.run_until_complete(client_.start(context))
+        return client_
 
     @pytest.mark.asyncio
-    async def test_preexisting_session(self):
+    async def test_preexisting_session(self, event_loop, context, session):
         """Test that the client does not close a pre-existing ClientSession on its way out."""
-        session = ClientSession()
-        client = InfluxDBClient(session=session)
-        await client.close()
+        client_ = InfluxDBClient(session=session)
+        await client_.start(context)
+        await context.close()
         assert not session.closed
 
     @pytest.mark.asyncio
-    async def test_session_resource(self):
+    async def test_session_resource(self, context, session):
         """Test that the client can acquire a ClientSession resource when started."""
-        session = ClientSession()
         client = InfluxDBClient(session='default')
-        ctx = Context()
-        ctx.publish_resource(session)
-        await client.start(ctx)
+        context.add_resource(session)
+        await client.start(context)
 
     @pytest.mark.asyncio
     async def test_ping(self, client):

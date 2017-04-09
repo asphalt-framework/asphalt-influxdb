@@ -117,28 +117,15 @@ class InfluxDBClient:
             retention_policy=retention_policy
         )
         self.timeout = timeout
-
-        if session:
-            self._session = session
-            self._close_session = False
-        else:
-            self._session = ClientSession()
-            self._close_session = True
+        self._session = session
 
     async def start(self, ctx: Context) -> None:
         """Resolve Asphalt resource references."""
-        if isinstance(self._session, str):
+        if self._session is None:
+            self._session = ClientSession()
+            ctx.add_teardown_callback(self._session.close)
+        elif isinstance(self._session, str):
             self._session = await ctx.request_resource(ClientSession, self._session)
-
-    async def close(self) -> None:
-        """
-        Close the HTTP client session if it was automatically created with the client instance.
-
-        """
-        if self._close_session:
-            await self._session.close()
-
-        self._session = None
 
     async def _request(self, method: str, path: str, **kwargs) -> ClientResponse:
         for i, base_url in enumerate(self.base_urls):

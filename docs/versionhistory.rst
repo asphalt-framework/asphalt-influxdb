@@ -3,6 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**2.0.0** (2017-04-11)
+
+- **BACKWARD INCOMPATIBLE** Migrated to Asphalt 3.0
+- **BACKWARD INCOMPATIBLE** Migrated to aiohttp 2.0
+
 **1.1.1** (2017-02-09)
 
 - Fixed handling of long responses (on InfluxDB 1.2+)
