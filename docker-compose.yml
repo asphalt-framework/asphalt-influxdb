@@ -1,0 +1,15 @@
+# Docker-like setup that serves as a local drop-in for the corresponding Travis services
+version: "2"
+services:
+  test:
+    build: .
+    links:
+      - influxdb
+    volumes:
+      - .:/app
+    environment:
+      INFLUXDB_HOST: influxdb
+    entrypoint: dockerize -wait tcp://influxdb:8086 pytest
+
+  influxdb:
+    image: influxdb

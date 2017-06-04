@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 from collections import OrderedDict
 from contextlib import closing
@@ -11,10 +12,12 @@ from asphalt.core import Context
 from asphalt.influxdb.client import InfluxDBClient, DataPoint
 from asphalt.influxdb.query import Series
 
+INFLUXDB_HOSTNAME = os.getenv('INFLUXDB_HOST', 'localhost')
+
 
 async def run_query(query, method='POST', *, loop):
     async with ClientSession(loop=loop) as session:
-        url = 'http://localhost:8086/query'
+        url = 'http://%s:8086/query' % INFLUXDB_HOSTNAME
         params = {'q': query, 'db': 'asphalt_test'}
         async with session.request(method, url, params=params) as response:
             json = await response.json()
@@ -69,7 +72,8 @@ class TestClient:
 
     @pytest.fixture
     def client(self, event_loop, context):
-        client_ = InfluxDBClient(db='asphalt_test', precision='u')
+        client_ = InfluxDBClient(base_urls=['http://%s:8086' % INFLUXDB_HOSTNAME],
+                                 db='asphalt_test', precision='u')
         event_loop.run_until_complete(client_.start(context))
         return client_
 
@@ -82,7 +86,7 @@ class TestClient:
 
     @pytest.fixture
     def bad_cluster_client(self, event_loop, context):
-        base_urls = ['http://localhost:9999', 'http://localhost:8086']
+        base_urls = ['http://localhost:9999', 'http://%s:8086' % INFLUXDB_HOSTNAME]
         client_ = InfluxDBClient(base_urls, db='asphalt_test', precision='u')
         event_loop.run_until_complete(client_.start(context))
         return client_
@@ -115,7 +119,7 @@ class TestClient:
         """
         version = await bad_cluster_client.ping()
         assert re.match(r'^\d+\.\d+\.\d+$', version)
-        assert bad_cluster_client.base_urls[0] == 'http://localhost:8086'
+        assert bad_cluster_client.base_urls[0] == 'http://%s:8086' % INFLUXDB_HOSTNAME
 
     @pytest.mark.parametrize('select, from_, expected', [
         (['field1', 'field2'], ['m1', 'm2'], 'SELECT field1,field2 FROM "m1","m2"'),
