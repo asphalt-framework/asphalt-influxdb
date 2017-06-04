@@ -122,8 +122,11 @@ class InfluxDBClient:
     async def start(self, ctx: Context) -> None:
         """Resolve Asphalt resource references."""
         if self._session is None:
+            def close_session():
+                self._session.close()
+
             self._session = ClientSession()
-            ctx.add_teardown_callback(self._session.close)
+            ctx.add_teardown_callback(close_session)
         elif isinstance(self._session, str):
             self._session = await ctx.request_resource(ClientSession, self._session)
 
