@@ -70,25 +70,25 @@ class Series:
 
     :ivar str name: name of the series
     :ivar tuple columns: column names
+    :ivar values: result rows as a list of lists where the inner list elements correspond to
+        column names in the ``columns`` attribute
+    :type values: List[List]]
     """
 
-    __slots__ = ('name', 'columns', '_values')
+    __slots__ = ('name', 'columns', 'values')
 
     def __init__(self, name: str, columns: List[str], values: List[list]) -> None:
         self.name = name
         self.columns = tuple(columns)
-        self._values = values
-
-    def add_values(self, values: List) -> None:
-        self._values.extend(values)
+        self.values = values
 
     def __iter__(self):
         columns = {key: index for index, key in enumerate(self.columns)}
-        for item in self._values:
+        for item in self.values:
             yield KeyedTuple(columns, item)
 
     def __len__(self):
-        return len(self._values)
+        return len(self.values)
 
 
 class SelectQuery:

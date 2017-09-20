@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**2.1.0** (2017-09-20)
+
+- Exposed the ``Series.values`` attribute to enable faster processing of query results
+
 **2.0.1** (2017-06-04)
 
 - Added compatibility with Asphalt 4.0

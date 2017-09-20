@@ -234,7 +234,7 @@ class InfluxDBClient:
                         for series_dict in result['series']:
                             partial = series_dict.pop('partial', False)
                             if last_is_partial:
-                                series_list[-1].add_values(series_dict['values'])
+                                series_list[-1].values.extend(series_dict['values'])
                             else:
                                 series = Series(**series_dict)
                                 series_list.append(series)
