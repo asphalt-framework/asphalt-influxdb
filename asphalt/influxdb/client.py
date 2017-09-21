@@ -206,10 +206,6 @@ class InfluxDBClient:
         :raises InfluxDBError: if the server returns an error or an unexpected HTTP status code
 
         """
-        def get_series(result: Dict[str, Any]) -> Union[Series, List[Series], None]:
-            series_list = [Series(**item) for item in result['series']]
-            return series_list[0] if len(series_list) == 1 else series_list
-
         assert check_argument_types()
 
         # Autodetecting SELECT ... INTO would require parsing of the query string
