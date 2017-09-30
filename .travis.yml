@@ -1,22 +1,57 @@
+language: python
 sudo: required
 
-language: python
+jobs:
+  include:
+    - env: TOXENV=py35
+      python: "3.5"
 
-services:
-  - docker
+    - env: TOXENV=py36
+      python: "3.6"
 
-python:
-  - "3.5"
-  - "3.6"
+    - env: TOXENV=pypy3
+      python: pypy3
+      after_success: skip
 
-before_install:
-  - docker-compose run -d -p 8086:8086 influxdb
+    - env: TOXENV=flake8
+      python: "3.5"
+      before_install: skip
+      after_success: skip
 
-install: pip install tox-travis coveralls
+    - env: TOXENV=mypy
+      python: "3.5"
+      before_install: skip
+      after_success: skip
+
+    - stage: deploy to PyPI
+      python: "3.5"
+      before_install: skip
+      install: pip install -U setuptools
+      script: skip
+      after_success: true
+      deploy:
+        provider: pypi
+        user: agronholm
+        password:
+          secure: LVDA472qXVVSvVIVVLtlAvv/8XqAXnNJlAODMT1Yzgp4PoHg/qh4uM5LzjJELCJ78FvSXqe30hd2rQ20AFnnrtmjmeq+V8RQ5Xrt/Y0TOn//GR6PyjxVnccah5AlaueuzXQhDYbMY1ACEzlcbTxzckI3L+UkFS5+KO/WkcvGep6g4omX+6PMl8sDRorEewjDLbTNpbjueE0rX1qRiwXBZvxuPWP/xLhiwYDyTeNnrcHunDR42leKTh28sLJBiJKIDvuLQGQsJglAt5vEWVvYy7MUHDF6810uPrxcoXLv4+Nq1+ydaWU2zUb3xUPbC9HU9YMvww+d/TIbPECUigv8O6KXAjd+QyNnue7SDt2a+7e9JE83QKGyFt92rlQzyHciardPP/J82TTLmPlapGK4T2SDpfg2qRSPrroOWK9nooqCHaa9vqLT34TArrUlZF5Gxup360yMTLZ913nn+Ird91p7hPMBgTwF5mgwUFzeXiEgQ4PDbSihKwRY1jGBVLZKpl+ZydH1X6LDgRBDqfC1hbpp0PeNLOb03uAjNMiOeO4PPVmqw/ySNrj0NvOeMfQd2sr4qvqD1ru07k/POeItKjqSgs4j1DMCnzaNS2MSqY/FCDvQM8RVgSM880FJL+zgzF/5KURLrd8nsy3FsFAoFwITki1vEHPKi5n2mXXjuGc=
+        distributions: sdist bdist_wheel
+        on:
+          tags: true
+          repo: asphalt-framework/asphalt-influxdb
+  allow_failures:
+    - env: TOXENV=mypy
+
+before_install: docker-compose run -d -p 8086:8086 influxdb
+
+install:
+  - pip install -U setuptools
+  - pip install tox
 
 script: tox
 
-after_success: coveralls
+after_success:
+  - pip install coveralls
+  - coveralls
 
 notifications:
   webhooks:
@@ -29,14 +64,3 @@ notifications:
     on_failure: change
     use_notice: true
     skip_join: true
-
-deploy:
-  provider: pypi
-  user: agronholm
-  password:
-    secure: LVDA472qXVVSvVIVVLtlAvv/8XqAXnNJlAODMT1Yzgp4PoHg/qh4uM5LzjJELCJ78FvSXqe30hd2rQ20AFnnrtmjmeq+V8RQ5Xrt/Y0TOn//GR6PyjxVnccah5AlaueuzXQhDYbMY1ACEzlcbTxzckI3L+UkFS5+KO/WkcvGep6g4omX+6PMl8sDRorEewjDLbTNpbjueE0rX1qRiwXBZvxuPWP/xLhiwYDyTeNnrcHunDR42leKTh28sLJBiJKIDvuLQGQsJglAt5vEWVvYy7MUHDF6810uPrxcoXLv4+Nq1+ydaWU2zUb3xUPbC9HU9YMvww+d/TIbPECUigv8O6KXAjd+QyNnue7SDt2a+7e9JE83QKGyFt92rlQzyHciardPP/J82TTLmPlapGK4T2SDpfg2qRSPrroOWK9nooqCHaa9vqLT34TArrUlZF5Gxup360yMTLZ913nn+Ird91p7hPMBgTwF5mgwUFzeXiEgQ4PDbSihKwRY1jGBVLZKpl+ZydH1X6LDgRBDqfC1hbpp0PeNLOb03uAjNMiOeO4PPVmqw/ySNrj0NvOeMfQd2sr4qvqD1ru07k/POeItKjqSgs4j1DMCnzaNS2MSqY/FCDvQM8RVgSM880FJL+zgzF/5KURLrd8nsy3FsFAoFwITki1vEHPKi5n2mXXjuGc=
-  distributions: sdist bdist_wheel
-  on:
-    tags: true
-    python: "3.5"
-    repo: asphalt-framework/asphalt-influxdb
